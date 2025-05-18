@@ -1,121 +1,59 @@
 # PR2
+## ЭФМО-01-24 Галай Егор Программирование корпоративных индустриальных систем
+## Техническое задание
+### Цели проекта
+- Практика работы со структурами данных
+- Изучение многопоточности и синхронизации потоков
+- Реализация асинхронной обработки файлов
 
-## Как использовать:
-1) Скомпилируйте и запустите программу
+### Реализованные функции
+1. Структуры данных
+```go
 
-2) Введите пути к файлам через пробел или оставьте поле пустым для анализа всех .txt файлов в текущей папке
-
-3) Программа выведет результаты анализа для каждого файла и общие итоги
-
-```
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace FileAnalyzer
-{
-    // Структура для хранения результатов анализа файла
-    public struct FileAnalysis
-    {
-        public string FileName { get; set; }
-        public int WordCount { get; set; }
-        public int CharCount { get; set; }
-    }
-
-    class Program
-    {
-        private static readonly object _lock = new object();
-        private static List<FileAnalysis> _results = new List<FileAnalysis>();
-
-        static async Task Main(string[] args)
-        {
-            Console.WriteLine("Введите пути к файлам через пробел или оставьте пустым для анализа всех .txt файлов в папке:");
-            string input = Console.ReadLine();
-
-            string[] filePaths;
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                filePaths = Directory.GetFiles(Directory.GetCurrentDirectory(), "*.txt");
-                if (filePaths.Length == 0)
-                {
-                    Console.WriteLine("Не найдено .txt файлов в текущей директории.");
-                    return;
-                }
-            }
-            else
-            {
-                filePaths = input.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            }
-
-            Console.WriteLine("\nНачинаем анализ файлов...");
-
-            var tasks = new List<Task>();
-            foreach (var filePath in filePaths)
-            {
-                tasks.Add(AnalyzeFileAsync(filePath));
-            }
-
-            await Task.WhenAll(tasks);
-
-            DisplayResults();
-        }
-
-        static async Task AnalyzeFileAsync(string filePath)
-        {
-            try
-            {
-                string content;
-                using (var reader = File.OpenText(filePath))
-                {
-                    content = await reader.ReadToEndAsync();
-                }
-
-                var fileName = Path.GetFileName(filePath);
-                int wordCount = content.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length;
-                int charCount = content.Length;
-
-                var analysis = new FileAnalysis
-                {
-                    FileName = fileName,
-                    WordCount = wordCount,
-                    CharCount = charCount
-                };
-
-                // Синхронизация доступа к общему списку результатов
-                lock (_lock)
-                {
-                    _results.Add(analysis);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при обработке файла {filePath}: {ex.Message}");
-            }
-        }
-
-        static void DisplayResults()
-        {
-            Console.WriteLine("\nРезультаты анализа:");
-
-            lock (_lock)
-            {
-                int totalWords = 0;
-                int totalChars = 0;
-                int fileNumber = 1;
-
-                foreach (var result in _results.OrderBy(r => r.FileName))
-                {
-                    Console.WriteLine($"{fileNumber++}. {result.FileName}: {result.WordCount} слов, {result.CharCount} символов");
-                    totalWords += result.WordCount;
-                    totalChars += result.CharCount;
-                }
-
-                Console.WriteLine($"\nИтог: {totalWords} слов, {totalChars} символов.");
-            }
-        }
-    }
+// FileAnalysis хранит результаты анализа одного файла
+type FileAnalysis struct {
+    FileName  string // Имя файла
+    WordCount int    // Количество слов
+    CharCount int    // Количество символов
+    Error     string // Ошибка обработки (если есть)
 }
+
+// Results хранит совокупные результаты
+type Results struct {
+    Files      map[int]FileAnalysis // Результаты по файлам
+    TotalWords int                  // Общее количество слов
+    TotalChars int                  // Общее количество символов
+}
+```
+2. Многопоточная обработка
+- Используется пул горутин для параллельной обработки
+- Синхронизация через sync.Mutex
+- Обработка ошибок чтения файлов
+
+3. Асинхронная обработка
+```go
+Copy
+// AnalyzeFiles запускает асинхронную обработку
+func (a *Analyzer) AnalyzeFiles(filePaths []string) (*GlobalResults, error) {
+    // ... 
+    for i, filePath := range filePaths {
+        wg.Add(1)
+        go func(index int, path string) {
+            defer wg.Done()
+            a.analyzeFile(index, path, results)
+        }(i, filePath)
+    }
+    // ...
+}
+```
+4. Вывод результатов
+Пример вывода:
+
+```cmd
+Результаты анализа:
+1. file1.txt: 24 слов, 160 символов
+2. file2.txt: 16511040 слов, 98034300 символов
+3. file3.txt: 8 слов, 44 символов
+
+Итог: 16511072 слов, 98034504 символов
 ```
